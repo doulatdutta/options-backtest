@@ -2,4 +2,8 @@
 venv/
 .venv/
 config/credentials.json
-
+core/__pycache__/
+core/__pycache__/engine.cpython-312.pyc
+core/__pycache__/upstox_api.cpython-312.pyc
+core/__pycache__/engine.cpython-312.pyc
+core/__pycache__/upstox_api.cpython-312.pyc
