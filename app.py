@@ -85,7 +85,7 @@ def main():
         expiry_day = st.selectbox(
             "Expiry Weekday",
             weekdays,
-            index=3,  # Default Thursday
+            index=1,  # Default Thursday
             help="Day of the week when options expire"
         )
         
