@@ -109,7 +109,7 @@ def main():
             "Lot Size",
             min_value=1,
             value=75,
-            step=1,
+            step=75,
             help="NIFTY lot size (default: 75)"
         )
         
