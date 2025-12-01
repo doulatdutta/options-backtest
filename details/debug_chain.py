@@ -1,6 +1,6 @@
 import requests
 
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiIzNzY5MDYiLCJqdGkiOiI2OTFlMTFhNTFkZTI2NzdiZDkxNjliNTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzYzNTc4Mjc3LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NjM1ODk2MDB9.4kdLONduaV0yv19y3jSXlo4f19coTub-fiazW3aAxS8"
+ACCESS_TOKEN = "    your_access_token_here    "
 
 url = "https://api.upstox.com/v2/option/chain"
 params = {

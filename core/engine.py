@@ -47,45 +47,29 @@ class BacktestEngine:
     
     def process_single_trade(self, trade):
         """Process a single trade"""
-        
-        # Calculate expiry date
+
+        # Step 1: expiry date
         entry_date = pd.to_datetime(trade['Entry Date'])
-        expiry_date = self.expiry_calculator.calculate_expiry(
-            entry_date,
-            self.expiry_day,
-            self.rollover_day
-        )
-        
-        # Calculate strike price
+
+        # If user provided manual expiry, use it; otherwise use rule-based
+        if 'Expiry Override' in trade and str(trade['Expiry Override']).strip():
+            expiry_date = pd.to_datetime(str(trade['Expiry Override'])).normalize()
+        else:
+            expiry_date = self.expiry_calculator.calculate_expiry(
+                entry_date,
+                self.expiry_day,
+                self.rollover_day
+            )
+
+
+        # Step 2: strike
         strike_price = self.strike_calculator.calculate_strike(
             nifty_price=trade['NIFTY Entry Price'],
             option_type=trade['Option Type'],
             moneyness=self.moneyness_mode
         )
-        
-        # Get option prices (with NIFTY spot for better calculation)
-        option_entry_price, entry_source = self.get_option_price(
-            trade['Entry DateTime'],
-            expiry_date,
-            strike_price,
-            trade['Option Type'],
-            trade['NIFTY Entry Price']
-        )
-        
-        option_exit_price, exit_source = self.get_option_price(
-            trade['Exit DateTime'],
-            expiry_date,
-            strike_price,
-            trade['Option Type'],
-            trade['NIFTY Exit Price']
-        )
-        
-        # Calculate P&L
-        direction_multiplier = 1 if trade['Direction'] == 'LONG' else -1
-        pnl_per_lot = (option_exit_price - option_entry_price) * direction_multiplier
-        total_pnl = pnl_per_lot * self.lot_size
-        
-        # Build result
+
+        # Default result dict (so even on error you get a row)
         result = {
             'Trade #': trade['Trade #'],
             'Entry Date': trade['Entry Date'],
@@ -97,41 +81,94 @@ class BacktestEngine:
             'Strike Price': int(strike_price),
             'NIFTY Entry': trade['NIFTY Entry Price'],
             'NIFTY Exit': trade['NIFTY Exit Price'],
-            'Option Entry Price': round(option_entry_price, 2),
-            'Option Exit Price': round(option_exit_price, 2),
-            'P&L (NIFTY)': round(trade['P&L (NIFTY)'], 2),
-            'P&L per Lot': round(pnl_per_lot, 2),
-            'P&L (Options)': round(total_pnl, 2),
-            'Data Source': f"{entry_source}/{exit_source}"
+            'Option Entry Price': None,
+            'Option Exit Price': None,
+            'P&L (NIFTY)': trade['P&L (NIFTY)'],
+            'P&L per Lot': None,
+            'P&L (Options)': None,
+            'Data Source': None,
+            'Error': None,
         }
-        
-        return result
-    
-    def get_option_price(self, timestamp, expiry_date, strike_price, option_type, nifty_spot):
-        """Get option price - try API first, then improved mock"""
-        
+
         try:
-            # Try Upstox API
-            price = self.upstox_api.get_historical_option_price(
-                timestamp=timestamp,
-                expiry=expiry_date,
-                strike=strike_price,
-                option_type=option_type,
-                interval=self.data_interval
+            # Step 3: option prices via API only
+            option_entry_price, entry_source = self.get_option_price(
+                trade['Entry DateTime'],
+                expiry_date,
+                strike_price,
+                trade['Option Type'],
+                trade['NIFTY Entry Price']
             )
-            
-            if price is not None and price > 0:
-                return price, 'API'
-            else:
-                raise ValueError("Invalid API price")
-                
+
+            option_exit_price, exit_source = self.get_option_price(
+                trade['Exit DateTime'],
+                expiry_date,
+                strike_price,
+                trade['Option Type'],
+                trade['NIFTY Exit Price']
+            )
+
+            direction_multiplier = 1 if trade['Direction'] == 'LONG' else -1
+            pnl_per_lot = (option_exit_price - option_entry_price) * direction_multiplier
+            total_pnl = pnl_per_lot * self.lot_size
+
+            result.update({
+                'Option Entry Price': round(option_entry_price, 2),
+                'Option Exit Price': round(option_exit_price, 2),
+                'P&L per Lot': round(pnl_per_lot, 2),
+                'P&L (Options)': round(total_pnl, 2),
+                'Data Source': f"{entry_source}/{exit_source}",
+            })
+
         except Exception as e:
-            # Use improved Black-Scholes calculation
-            calc_price = self.calculate_option_price_realistic(
-                timestamp, expiry_date, strike_price, option_type, nifty_spot
-            )
-            print(f"🔧 CALC: {option_type} {strike_price} @ {pd.to_datetime(timestamp).strftime('%H:%M')} = ₹{calc_price:.2f}")
-            return calc_price, 'CALCULATED'
+            # For example: "No expired contracts for 2025-10-21 - not archived yet"
+            msg = str(e)
+            print(f"❌ Error processing trade {trade['Trade #']}: {msg}")
+            result['Error'] = msg
+            result['Data Source'] = 'API_ERROR'
+
+        return result
+
+    
+
+
+
+
+    def get_option_price(self, timestamp, expiry_date, strike_price, option_type, nifty_spot):
+        """
+        Get option price strictly from Upstox API.
+        - Try once
+        - If fails, wait 60 seconds, try again
+        - If still fails, raise error (handled at trade level)
+        """
+        last_error = None
+
+        for attempt in range(2):
+            try:
+                price = self.upstox_api.get_historical_option_price(
+                    timestamp=timestamp,
+                    expiry=expiry_date,
+                    strike=strike_price,
+                    option_type=option_type,
+                    interval=self.data_interval
+                )
+
+                if price is not None and price > 0:
+                    return float(price), 'API'
+
+                last_error = ValueError("Invalid price returned by API")
+
+            except Exception as e:
+                last_error = e
+
+            if attempt == 0:
+                print(f"⚠️ API error for {option_type} {strike_price} @ {timestamp}: {last_error}")
+                print("   Waiting 60 seconds before retry...")
+                time.sleep(60)
+
+        # both attempts failed
+        raise last_error
+
     
     def calculate_option_price_realistic(self, timestamp, expiry_date, strike, option_type, spot_price):
         """

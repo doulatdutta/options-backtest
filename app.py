@@ -85,7 +85,7 @@ def main():
         expiry_day = st.selectbox(
             "Expiry Weekday",
             weekdays,
-            index=3,  # Default Thursday
+            index=1,  # Default Tuesday
             help="Day of the week when options expire"
         )
         
@@ -109,7 +109,7 @@ def main():
             "Lot Size",
             min_value=1,
             value=75,
-            step=1,
+            step=75,
             help="NIFTY lot size (default: 75)"
         )
         
@@ -151,21 +151,33 @@ def main():
                     st.subheader("📋 Raw Data Preview")
                     st.dataframe(raw_df.head(10), use_container_width=True)
                     
-                    # Parse trades
-                    trades_df = parser.parse_trades(raw_df)
-                    
-                    st.subheader("✅ Parsed Trades")
-                    st.dataframe(trades_df.head(10), use_container_width=True)
-                    
-                    st.metric("Total Trades Identified", len(trades_df))
-                
+                # Parse trades
+                trades_df = parser.parse_trades(raw_df)
+                # Add optional manual expiry override column
+                if 'Expiry Override' not in trades_df.columns:
+                    trades_df['Expiry Override'] = ''   # keep as string, e.g. 2025-10-30
+
+
+                st.subheader("✅ Parsed Trades (editable, you can set Expiry Override)")
+
+                edited_trades_df = st.data_editor(
+                    trades_df,
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    key="parsed_trades_editor"
+                )
+
+                st.metric("Total Trades Identified", len(edited_trades_df))
+
+
                 # Run Backtest Button
                 if st.button("🚀 Run Backtest", type="primary", use_container_width=True):
                     if not api_key or not api_secret or not access_token:
                         st.error("⚠️ Please provide Upstox API credentials in the sidebar!")
                     else:
+                        # Use the edited DataFrame, not the original
                         run_backtest(
-                            trades_df=trades_df,
+                            trades_df=edited_trades_df,
                             api_key=api_key,
                             api_secret=api_secret,
                             access_token=access_token,
@@ -175,6 +187,8 @@ def main():
                             lot_size=lot_size,
                             data_interval=data_interval
                         )
+
+                        
                         
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")

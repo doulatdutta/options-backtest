@@ -406,7 +406,7 @@ class UpstoxOptionAPI:
 # -------------------------- Example usage --------------------------
 if __name__ == '__main__':
     # Replace with your access token
-    ACCESS_TOKEN = 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiIzNzY5MDYiLCJqdGkiOiI2OTJiNDJkZmJhYzQ4MDMwYmFiODMyMmMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzY0NDQyODQ3LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NjQ0NTM2MDB9.5zoRNVElcwcolrqVQRFgvaFizwN0-ZFsEAyfzicMfYg'
+    ACCESS_TOKEN = 'YOUR_UPSTOX_ACCESS_TOKEN'
 
     api = UpstoxOptionAPI(access_token=ACCESS_TOKEN, instruments_cache_path='instruments.csv', verbose=True)
 
