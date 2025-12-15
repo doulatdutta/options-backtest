@@ -8,3 +8,6 @@ core/__pycache__/upstox_api.cpython-312.pyc
 core/__pycache__/engine.cpython-312.pyc
 core/__pycache__/upstox_api.cpython-312.pyc
 test.py
+output_with_nifty.xlsx
+input_times.xlsx
+nifty_spot_from_upstox.py
