@@ -1,12 +1,11 @@
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
-import math
+
 
 class BacktestEngine:
-    """Main backtesting engine with hybrid API + improved mock"""
-    
+    """Main backtesting engine using Upstox API only"""
+
     def __init__(self, upstox_api, expiry_calculator, strike_calculator,
                  expiry_day, rollover_day, moneyness_mode, lot_size, data_interval):
         self.upstox_api = upstox_api
@@ -17,59 +16,119 @@ class BacktestEngine:
         self.moneyness_mode = moneyness_mode
         self.lot_size = lot_size
         self.data_interval = data_interval
-        
+
     def run_backtest(self, trades_df, progress_bar=None, status_text=None):
         """Execute backtest for all trades"""
-        
+
         results = []
         total_trades = len(trades_df)
-        
+
         for idx, trade in trades_df.iterrows():
             if status_text:
                 status_text.text(f"Processing trade {idx + 1}/{total_trades}...")
-            
+
             if progress_bar:
                 progress = 30 + int((idx / total_trades) * 60)
                 progress_bar.progress(progress)
-            
+
             try:
                 result = self.process_single_trade(trade)
                 results.append(result)
                 time.sleep(0.05)
-                
+
             except Exception as e:
-                print(f"❌ Error processing trade {trade['Trade #']}: {str(e)}")
-                result = trade.to_dict()
-                result['Error'] = str(e)
+                msg = str(e)
+                print(f"❌ Error processing trade {trade['Trade #']}: {msg}")
+                result = {
+                    'Trade #': trade.get('Trade #'),
+                    'Entry Date': trade.get('Entry Date'),
+                    'Entry Time': trade.get('Entry Time'),
+                    'Exit Date': trade.get('Exit Date'),
+                    'Exit Time': trade.get('Exit Time'),
+                    'Expiry Date': None,
+                    'Option Type': trade.get('Option Type'),
+                    'Strike Price': None,
+                    'NIFTY Entry': None,
+                    'NIFTY Exit': None,
+                    'Option Entry Price': None,
+                    'Option Exit Price': None,
+                    'P&L (NIFTY)': None,
+                    'P&L per Lot': None,
+                    'P&L (Options)': None,
+                    'Data Source': 'API_ERROR',
+                    'Error': msg
+                }
                 results.append(result)
-        
+
         return pd.DataFrame(results)
-    
+
     def process_single_trade(self, trade):
         """Process a single trade"""
 
-        # Step 1: expiry date
+        # 1) Expiry date (can add override logic here if needed)
         entry_date = pd.to_datetime(trade['Entry Date'])
+        expiry_date = self.expiry_calculator.calculate_expiry(
+            entry_date,
+            self.expiry_day,
+            self.rollover_day
+        )
 
-        # If user provided manual expiry, use it; otherwise use rule-based
-        if 'Expiry Override' in trade and str(trade['Expiry Override']).strip():
-            expiry_date = pd.to_datetime(str(trade['Expiry Override'])).normalize()
-        else:
-            expiry_date = self.expiry_calculator.calculate_expiry(
-                entry_date,
-                self.expiry_day,
-                self.rollover_day
-            )
+        # 2) NIFTY spot from API for entry/exit
+        entry_ts = trade['Entry DateTime']
+        exit_ts = trade['Exit DateTime']
 
+        nifty_entry = self.upstox_api.get_nifty_spot_price(
+            timestamp=entry_ts,
+            interval=self.data_interval
+        )
+        nifty_exit = self.upstox_api.get_nifty_spot_price(
+            timestamp=exit_ts,
+            interval=self.data_interval
+        )
 
-        # Step 2: strike
+        # 3) Strike from API-based NIFTY entry
         strike_price = self.strike_calculator.calculate_strike(
-            nifty_price=trade['NIFTY Entry Price'],
+            nifty_price=nifty_entry,
             option_type=trade['Option Type'],
             moneyness=self.moneyness_mode
         )
 
-        # Default result dict (so even on error you get a row)
+        # 4) Option prices via API only (with retry inside get_option_price)
+        option_entry_price, entry_source = self.get_option_price(
+            entry_ts,
+            expiry_date,
+            strike_price,
+            trade['Option Type'],
+        )
+        option_exit_price, exit_source = self.get_option_price(
+            exit_ts,
+            expiry_date,
+            strike_price,
+            trade['Option Type'],
+        )
+
+        # 5) P&L logic based on option type
+
+        opt_type = str(trade['Option Type']).upper()
+
+        if opt_type == 'PUT':
+            # P&L (NIFTY) = Entry - Exit
+            pnl_nifty = nifty_entry - nifty_exit
+            # P&L per Lot = Option Exit - Option Entry
+            pnl_per_lot = option_exit_price - option_entry_price
+
+        elif opt_type == 'CALL':
+            # P&L (NIFTY) = Exit - Entry
+            pnl_nifty = nifty_exit - nifty_entry
+            # P&L per Lot = Option Exit - Option Entry
+            pnl_per_lot = option_exit_price - option_entry_price
+
+        else:
+            raise ValueError(f"Unknown option type: {opt_type}")
+
+        total_pnl = pnl_per_lot * self.lot_size
+
+
         result = {
             'Trade #': trade['Trade #'],
             'Entry Date': trade['Entry Date'],
@@ -79,62 +138,22 @@ class BacktestEngine:
             'Expiry Date': expiry_date.date(),
             'Option Type': trade['Option Type'],
             'Strike Price': int(strike_price),
-            'NIFTY Entry': trade['NIFTY Entry Price'],
-            'NIFTY Exit': trade['NIFTY Exit Price'],
-            'Option Entry Price': None,
-            'Option Exit Price': None,
-            'P&L (NIFTY)': trade['P&L (NIFTY)'],
-            'P&L per Lot': None,
-            'P&L (Options)': None,
-            'Data Source': None,
-            'Error': None,
+            'NIFTY Entry': round(nifty_entry, 2),
+            'NIFTY Exit': round(nifty_exit, 2),
+            'Option Entry Price': round(option_entry_price, 2),
+            'Option Exit Price': round(option_exit_price, 2),
+            'P&L (NIFTY)': round(pnl_nifty, 2),
+            'P&L per Lot': round(pnl_per_lot, 2),
+            'P&L (Options)': round(total_pnl, 2),
+#            'P&L (NIFTY)': round(pnl_nifty * self.lot_size, 2),
+            'Data Source': f"{entry_source}/{exit_source}",
+            'Error': None
         }
 
-        try:
-            # Step 3: option prices via API only
-            option_entry_price, entry_source = self.get_option_price(
-                trade['Entry DateTime'],
-                expiry_date,
-                strike_price,
-                trade['Option Type'],
-                trade['NIFTY Entry Price']
-            )
-
-            option_exit_price, exit_source = self.get_option_price(
-                trade['Exit DateTime'],
-                expiry_date,
-                strike_price,
-                trade['Option Type'],
-                trade['NIFTY Exit Price']
-            )
-
-            direction_multiplier = 1 if trade['Direction'] == 'LONG' else -1
-            pnl_per_lot = (option_exit_price - option_entry_price) * direction_multiplier
-            total_pnl = pnl_per_lot * self.lot_size
-
-            result.update({
-                'Option Entry Price': round(option_entry_price, 2),
-                'Option Exit Price': round(option_exit_price, 2),
-                'P&L per Lot': round(pnl_per_lot, 2),
-                'P&L (Options)': round(total_pnl, 2),
-                'Data Source': f"{entry_source}/{exit_source}",
-            })
-
-        except Exception as e:
-            # For example: "No expired contracts for 2025-10-21 - not archived yet"
-            msg = str(e)
-            print(f"❌ Error processing trade {trade['Trade #']}: {msg}")
-            result['Error'] = msg
-            result['Data Source'] = 'API_ERROR'
 
         return result
 
-    
-
-
-
-
-    def get_option_price(self, timestamp, expiry_date, strike_price, option_type, nifty_spot):
+    def get_option_price(self, timestamp, expiry_date, strike_price, option_type):
         """
         Get option price strictly from Upstox API.
         - Try once
@@ -168,74 +187,3 @@ class BacktestEngine:
 
         # both attempts failed
         raise last_error
-
-    
-    def calculate_option_price_realistic(self, timestamp, expiry_date, strike, option_type, spot_price):
-        """
-        Realistic option price calculation using Black-Scholes principles
-        Much better than random mock data
-        """
-        
-        # Convert timestamps
-        if isinstance(timestamp, pd.Timestamp):
-            timestamp_dt = timestamp.to_pydatetime()
-        elif isinstance(timestamp, str):
-            timestamp_dt = pd.to_datetime(timestamp).to_pydatetime()
-        else:
-            timestamp_dt = timestamp
-        
-        if isinstance(expiry_date, pd.Timestamp):
-            expiry_date_obj = expiry_date.date()
-        elif isinstance(expiry_date, datetime):
-            expiry_date_obj = expiry_date.date()
-        else:
-            expiry_date_obj = expiry_date
-        
-        # Days to expiry
-        entry_date = timestamp_dt.date()
-        days_to_expiry = (expiry_date_obj - entry_date).days
-        
-        if days_to_expiry < 0:
-            days_to_expiry = 0
-        
-        # Time to expiry in years
-        T = max(days_to_expiry / 365.0, 0.001)
-        
-        # Intrinsic value
-        if option_type == 'CALL':
-            intrinsic = max(0, spot_price - strike)
-        else:  # PUT
-            intrinsic = max(0, strike - spot_price)
-        
-        # Time value calculation
-        moneyness = abs(spot_price - strike) / spot_price
-        
-        # NIFTY volatility (typical 15-18%)
-        volatility = 0.17
-        
-        # Time decay factor
-        if days_to_expiry == 0:
-            time_decay = 0.05  # Almost no time value on expiry
-        elif days_to_expiry <= 1:
-            time_decay = 0.15
-        elif days_to_expiry <= 7:
-            time_decay = 0.4 + (days_to_expiry / 7) * 0.4
-        else:
-            time_decay = 0.85
-        
-        # Base time value (ATM has highest)
-        atm_time_value = spot_price * volatility * math.sqrt(T) * 100
-        
-        # Moneyness adjustment (Gaussian decay)
-        moneyness_factor = math.exp(-12 * moneyness**2)
-        
-        # Final time value
-        time_value = atm_time_value * moneyness_factor * time_decay
-        
-        # Total price
-        option_price = intrinsic + time_value
-        
-        # Ensure minimum reasonable price
-        option_price = max(5, option_price)
-        
-        return option_price

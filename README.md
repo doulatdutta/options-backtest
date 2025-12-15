@@ -117,6 +117,10 @@ Edit `config/credentials.json`:
 
 > **Note**: Get your credentials from [Upstox Developer Console](https://upstox.com/developer/apps)
 
+```bash
+    .\venv\Scripts\Activate.ps1
+```
+
 4. **Run the application**
 
 ```bash

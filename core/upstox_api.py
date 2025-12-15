@@ -96,31 +96,40 @@ class UpstoxAPI:
     # ================== EXPIRED OPTIONS ==================
     
     def _get_expired_option_price(self, timestamp, expiry, strike, option_type, interval):
-        """Handle expired options"""
+        """Handle expired options with fallback to next-week expiry if not archived yet."""
         
-        # Validate timestamp is before expiry
+        # Validate timestamp is before (or same week as) expiry
         if timestamp.date() > expiry.date():
             raise ValueError(f"Timestamp {timestamp.date()} is after expiry {expiry.date()}")
-        
-        # Get expired contracts
+
+        # First try original expiry
         contracts = self._get_expired_contracts(expiry)
-        
+
+        # If not archived, try next-week expiry once
         if len(contracts) == 0:
-            raise ValueError(f"No expired contracts for {expiry.date()} - not archived yet")
-        
+            print(f"   ⚠️ No expired contracts for {expiry.date()} - trying next-week expiry")
+            next_week_expiry = expiry + pd.Timedelta(days=7)
+            contracts = self._get_expired_contracts(next_week_expiry)
+
+            if len(contracts) == 0:
+                # still nothing → give up
+                raise ValueError(f"No expired contracts for {expiry.date()} or {next_week_expiry.date()} - not archived yet")
+
+            # use next-week expiry for the rest of the logic
+            expiry = next_week_expiry
+
         # Find instrument key
         instrument_key = self._find_expired_instrument_key(contracts, strike, option_type)
-        
+
         # Get candles
         candles = self._get_expired_candles(instrument_key, timestamp, interval)
-        
+
         if len(candles) == 0:
             raise ValueError("No expired candles available")
-        
-        # Extract price
+
         price = self._find_closest_price(candles, timestamp)
-        
         return price
+
     
     def _get_expired_contracts(self, expiry):
         """Get expired contracts for a specific expiry"""
@@ -223,7 +232,32 @@ class UpstoxAPI:
         except Exception as e:
             print(f"   ⚠️ Error: {str(e)}")
             return []
-    
+
+
+    def get_nifty_spot_price(self, timestamp, interval="1minute"):
+        """
+        Get NIFTY 50 spot price (index) at closest candle to timestamp.
+        Uses NSE_INDEX|Nifty 50 via historical-candle API.
+        """
+        instrument_key = "NSE_INDEX|Nifty 50"
+        ts = pd.to_datetime(timestamp)
+        to_date = ts.strftime("%Y-%m-%d")
+        from_date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+        url = f"{self.BASE_URL}/historical-candle/{instrument_key}/{interval}/{to_date}/{from_date}"
+        print(f"📡 Fetching NIFTY spot from {from_date} to {to_date}")
+        r = requests.get(url, headers=self.headers, timeout=15)
+        if r.status_code != 200:
+            raise ValueError(f"NIFTY spot API error: {r.status_code}")
+
+        data = r.json()
+        candles = data.get("data", {}).get("candles", [])
+        if not candles:
+            raise ValueError("No NIFTY spot candles returned")
+
+        # reuse price finder
+        return float(self._find_closest_price(candles, ts))
+
     # ================== LIVE OPTIONS ==================
     
     def _get_live_option_price(self, timestamp, expiry, strike, option_type, interval):

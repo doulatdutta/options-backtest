@@ -17,39 +17,45 @@ class ExpiryCalculator:
     
     def calculate_expiry(self, entry_date, expiry_weekday, rollover_weekday):
         """
-        Calculate expiry date based on entry date, expiry weekday, and rollover day
-        
-        Args:
-            entry_date: Date when trade was entered
-            expiry_weekday: Day of week when options expire (e.g., 'Thursday')
-            rollover_weekday: Day of week after which trades roll to next expiry
-            
-        Returns:
-            datetime: Expiry date
+        Calculate expiry date based on entry date, expiry weekday, and rollover day,
+        treating the selected expiry weekday as the start of the 'options week'.
+
+        Behaviour:
+        - BEFORE rollover weekday  -> use NEXT expiry
+        - FROM rollover weekday up to and including next expiry weekday -> use NEXT-TO-NEXT expiry
         """
-        
+
         if isinstance(entry_date, str):
             entry_date = pd.to_datetime(entry_date)
-        
-        expiry_day_num = self.WEEKDAY_MAP[expiry_weekday]
-        rollover_day_num = self.WEEKDAY_MAP[rollover_weekday]
-        
-        entry_weekday = entry_date.weekday()
-        
-        # Check if entry is on or after rollover day
-        if entry_weekday >= rollover_day_num:
-            # Roll to next week's expiry
-            days_ahead = (expiry_day_num - entry_weekday + 7) % 7
-            if days_ahead == 0:
-                days_ahead = 7
+
+        expiry_day_num = self.WEEKDAY_MAP[expiry_weekday]      # e.g. Tuesday = 1
+        rollover_day_num = self.WEEKDAY_MAP[rollover_weekday]  # e.g. Thursday = 3
+        entry_weekday = entry_date.weekday()                    # 0..6
+
+        # Compute the "next expiry" from the entry date
+        days_to_next = (expiry_day_num - entry_weekday) % 7
+        if days_to_next == 0:
+            days_to_next = 7
+        next_expiry = entry_date + timedelta(days=days_to_next)
+
+        # Compute the "start of current options week" for this entry date.
+        # Week starts on expiry weekday.
+        # Move backwards from entry_date to the most recent expiry weekday.
+        days_back_to_week_start = (entry_weekday - expiry_day_num) % 7
+        week_start = entry_date - timedelta(days=days_back_to_week_start)
+
+        # Rollover boundary = week_start + (rollover_day_num - expiry_day_num) days
+        # (mod 7 to stay within 0..6)
+        offset = (rollover_day_num - expiry_day_num) % 7
+        rollover_boundary = week_start + timedelta(days=offset)
+
+        # If entry is BEFORE rollover_boundary -> use next expiry
+        # If entry is ON/AFTER rollover_boundary -> use next-to-next expiry
+        if entry_date < rollover_boundary:
+            expiry_date = next_expiry
         else:
-            # Use current week's expiry
-            days_ahead = (expiry_day_num - entry_weekday) % 7
-            if days_ahead == 0:
-                days_ahead = 7
-        
-        expiry_date = entry_date + timedelta(days=days_ahead)
-        
+            expiry_date = next_expiry + timedelta(days=7)
+
         return expiry_date
     
     def get_next_expiry(self, current_date, expiry_weekday):
