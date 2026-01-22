@@ -81,20 +81,19 @@ def main():
         st.subheader("📊 Backtest Parameters")
         
         # Expiry and Rollover Configuration
-        weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-        expiry_day = st.selectbox(
-            "Expiry Weekday",
-            weekdays,
-            index=1,  # Default Tuesday
+        weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        expiryday = st.selectbox(
+            "Expiry Weekday", weekdays, index=1,
             help="Day of the week when options expire"
         )
-        
-        rollover_day = st.selectbox(
-            "Rollover Day",
-            weekdays,
-            index=1,  # Default Tuesday
-            help="Day after which trades roll to next week's expiry"
+
+        rollover_choices = ["No rollover"] + weekdays
+        rolloverday = st.selectbox(
+            "Rollover Day", rollover_choices, index=0,
+            help="Select 'No rollover' to always use the next expiry"
         )
+
+
         
         # Moneyness Configuration
         moneyness_mode = st.selectbox(
@@ -181,8 +180,8 @@ def main():
                             api_key=api_key,
                             api_secret=api_secret,
                             access_token=access_token,
-                            expiry_day=expiry_day,
-                            rollover_day=rollover_day,
+                            expiry_day=expiryday,
+                            rollover_day=rolloverday,
                             moneyness_mode=moneyness_mode,
                             lot_size=lot_size,
                             data_interval=data_interval

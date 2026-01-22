@@ -24,9 +24,15 @@ class ExpiryCalculator:
         - BEFORE rollover weekday  -> use NEXT expiry
         - FROM rollover weekday up to and including next expiry weekday -> use NEXT-TO-NEXT expiry
         """
-
         if isinstance(entry_date, str):
             entry_date = pd.to_datetime(entry_date)
+
+        # Allow "No rollover"
+        if rollover_weekday == "No rollover":
+            # Just return the next expiry, ignoring any rollover logic
+            return self.get_next_expiry(entry_date, expiry_weekday)
+
+
 
         expiry_day_num = self.WEEKDAY_MAP[expiry_weekday]      # e.g. Tuesday = 1
         rollover_day_num = self.WEEKDAY_MAP[rollover_weekday]  # e.g. Thursday = 3
