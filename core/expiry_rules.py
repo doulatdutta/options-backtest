@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 
+
 class ExpiryCalculator:
     """Calculate option expiry dates with rollover logic"""
     
@@ -27,12 +28,9 @@ class ExpiryCalculator:
         if isinstance(entry_date, str):
             entry_date = pd.to_datetime(entry_date)
 
-        # Allow "No rollover"
+        # Allow "No rollover" - use current week's expiry if on/before expiry day
         if rollover_weekday == "No rollover":
-            # Just return the next expiry, ignoring any rollover logic
-            return self.get_next_expiry(entry_date, expiry_weekday)
-
-
+            return self.get_next_expiry(entry_date, expiry_weekday, include_today=True)
 
         expiry_day_num = self.WEEKDAY_MAP[expiry_weekday]      # e.g. Tuesday = 1
         rollover_day_num = self.WEEKDAY_MAP[rollover_weekday]  # e.g. Thursday = 3
@@ -64,9 +62,15 @@ class ExpiryCalculator:
 
         return expiry_date
     
-    def get_next_expiry(self, current_date, expiry_weekday):
-        """Get the next expiry date from current date"""
+    def get_next_expiry(self, current_date, expiry_weekday, include_today=False):
+        """
+        Get the next expiry date from current date
         
+        Args:
+            current_date: The reference date
+            expiry_weekday: Target expiry weekday (e.g., 'Tuesday')
+            include_today: If True and current_date is the expiry weekday, return current_date
+        """
         if isinstance(current_date, str):
             current_date = pd.to_datetime(current_date)
         
@@ -74,7 +78,11 @@ class ExpiryCalculator:
         current_weekday = current_date.weekday()
         
         days_ahead = (expiry_day_num - current_weekday) % 7
-        if days_ahead == 0:
+        
+        # If today is the expiry day and include_today is True, use today
+        if days_ahead == 0 and include_today:
+            return current_date
+        elif days_ahead == 0:
             days_ahead = 7
         
         return current_date + timedelta(days=days_ahead)
