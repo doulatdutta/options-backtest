@@ -70,10 +70,10 @@ def main():
         st.header("⚙️ Configuration")
         
         # Upstox API Configuration
-        st.subheader("🔐 Upstox API Credentials")
-        api_key = st.text_input("API Key", type="password", help="Your Upstox API Key")
-        api_secret = st.text_input("API Secret", type="password", help="Your Upstox API Secret")
-        access_token = st.text_input("Access Token", type="password", help="Your Upstox Access Token")
+        st.subheader("🔐 Upstox Plus API Credentials")
+        api_key = st.text_input("API Key", type="password", help="Your Upstox Plus API Key")
+        api_secret = st.text_input("API Secret", type="password", help="Your Upstox Plus API Secret")
+        access_token = st.text_input("Access Token", type="password", help="Your Upstox Plus Access Token")
         
         st.divider()
         
@@ -107,9 +107,9 @@ def main():
         lot_size = st.number_input(
             "Lot Size",
             min_value=1,
-            value=75,
-            step=75,
-            help="NIFTY lot size (default: 75)"
+            value=65,
+            step=65,
+            help="NIFTY lot size (default: 65)"
         )
         
         # Data Interval
@@ -123,7 +123,7 @@ def main():
         st.divider()
         
         # Display Info
-        st.info("📌 **Data Source:** Upstox API\n📅 **Index:** NIFTY 50")
+        st.info("📌 **Data Source:** Upstox Plus API\n📅 **Index:** NIFTY 50")
     
     # Main content area
     tab1, tab2, tab3 = st.tabs(["📁 Upload & Process", "📊 Results & Analysis", "📈 Performance Metrics"])
