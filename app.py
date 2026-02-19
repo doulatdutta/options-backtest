@@ -71,9 +71,9 @@ def main():
         
         # Upstox API Configuration
         st.subheader("🔐 Upstox API Credentials")
-        api_key = st.text_input("API Key", type="password", help="Your Upstox API Key")
-        api_secret = st.text_input("API Secret", type="password", help="Your Upstox API Secret")
-        access_token = st.text_input("Access Token", type="password", help="Your Upstox Access Token")
+        api_key = st.text_input("API Key", type="password", help="Your Upstox Plus API Key")
+        api_secret = st.text_input("API Secret", type="password", help="Your Upstox Plus API Secret")
+        access_token = st.text_input("Access Token", type="password", help="Your Upstox Plus Access Token")
         
         st.divider()
         
@@ -123,7 +123,7 @@ def main():
         st.divider()
         
         # Display Info
-        st.info("📌 **Data Source:** Upstox API\n📅 **Index:** NIFTY 50")
+        st.info("📌 **Data Source:** Upstox Plus API\n📅 **Index:** NIFTY 50")
     
     # Main content area
     tab1, tab2, tab3 = st.tabs(["📁 Upload & Process", "📊 Results & Analysis", "📈 Performance Metrics"])
