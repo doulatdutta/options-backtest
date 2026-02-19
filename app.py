@@ -70,7 +70,7 @@ def main():
         st.header("⚙️ Configuration")
         
         # Upstox API Configuration
-        st.subheader("🔐 Upstox API Credentials")
+        st.subheader("🔐 Upstox Plus API Credentials")
         api_key = st.text_input("API Key", type="password", help="Your Upstox Plus API Key")
         api_secret = st.text_input("API Secret", type="password", help="Your Upstox Plus API Secret")
         access_token = st.text_input("Access Token", type="password", help="Your Upstox Plus Access Token")
