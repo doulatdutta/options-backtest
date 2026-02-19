@@ -107,9 +107,9 @@ def main():
         lot_size = st.number_input(
             "Lot Size",
             min_value=1,
-            value=75,
-            step=75,
-            help="NIFTY lot size (default: 75)"
+            value=65,
+            step=65,
+            help="NIFTY lot size (default: 65)"
         )
         
         # Data Interval
