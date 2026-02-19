@@ -4,7 +4,7 @@ from datetime import timedelta
 import time
 
 # ========= CONFIG =========
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiIzUkM3UUciLCJqdGkiOiI2OTcyNzIyNmJkNDA4NDUyZWJkZDU0Y2EiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzY5MTA4MDA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NjkxMTkyMDB9.WTa_GH7xSTtN4EqCo_d3UJ7rQf2ixPfu667Cyui2vFI"  # paste your token
+ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiIzNzY5MDYiLCJqdGkiOiI2OTk2MDYwZTdhNjRlNzIxOGExZTk5YjQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzcxNDM5NjMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NzE0NTIwMDB9.HD9vD_KxWKH7JtjypH0SaWEUqSBu_uc2M_yUNk80rJs"  # paste your token
 INPUT_EXCEL  = "input_times.xlsx"        # your file with Date/Time
 OUTPUT_EXCEL = "output_with_nifty.xlsx"  # output file
 DATE_COLUMN  = "Date"                    # column name in your Excel

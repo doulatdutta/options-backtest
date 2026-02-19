@@ -37,18 +37,18 @@ class TradingViewParser:
         entries = df[df['Type'].str.upper() == 'ENTRY'].copy()
         exits = df[df['Type'].str.upper() == 'EXIT'].copy()
         
-        # Merge Entry and Exit by Trade #
+        # Merge Entry and Exit by Trade # and Signal (to handle same Trade # for Long & Short)
         trades = pd.merge(
             entries,
             exits,
-            on='Trade #',
+            on=['Trade #', 'Signal'],
             suffixes=('_entry', '_exit')
         )
         
         # Create clean output DataFrame
         result = pd.DataFrame({
             'Trade #': trades['Trade #'],
-            'Direction': trades['Signal_entry'].str.upper(),
+            'Direction': trades['Signal'].str.upper(),
             'Entry Date': pd.to_datetime(trades['Date_entry']).dt.date,
             'Entry Time': pd.to_datetime(trades['Time_entry'], format='%H:%M:%S').dt.time,
             'Exit Date': pd.to_datetime(trades['Date_exit']).dt.date,
