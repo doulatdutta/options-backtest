@@ -182,8 +182,8 @@ class BacktestEngine:
 
             if attempt == 0:
                 print(f"⚠️ API error for {option_type} {strike_price} @ {timestamp}: {last_error}")
-                print("   Waiting 60 seconds before retry...")
-                time.sleep(60)
+                print("   Waiting 20 seconds before retry...")
+                time.sleep(20)
 
         # both attempts failed
         raise last_error

@@ -6,23 +6,27 @@ class TradingViewParser:
     """Parse TradingView strategy export files"""
     
     def __init__(self):
-        self.required_columns = ['Trade #', 'Type', 'Signal', 'Date', 'Time', 'Price']
+        # Price column is NO LONGER required - NIFTY price is fetched from API
+        self.required_columns = ['Trade #', 'Type', 'Signal', 'Date', 'Time']
     
     def parse_trades(self, df):
         """
-        Parse TradingView Excel export and pair Entry/Exit rows
+        Parse TradingView Excel export and pair Entry/Exit rows.
+        
+        NIFTY spot price is automatically fetched from the Upstox API 
+        based on entry/exit date and time — no manual price input needed.
         
         Args:
             df: Raw DataFrame from TradingView export
             
         Returns:
-            DataFrame with paired Entry/Exit trades
+            DataFrame with paired Entry/Exit trades (no price columns)
         """
         
         # Clean column names
         df.columns = df.columns.str.strip()
         
-        # Check required columns
+        # Check required columns (Price is optional now)
         missing_cols = [col for col in self.required_columns if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
@@ -45,7 +49,7 @@ class TradingViewParser:
             suffixes=('_entry', '_exit')
         )
         
-        # Create clean output DataFrame
+        # Create clean output DataFrame (no price columns - fetched from API)
         result = pd.DataFrame({
             'Trade #': trades['Trade #'],
             'Direction': trades['Signal'].str.upper(),
@@ -55,17 +59,7 @@ class TradingViewParser:
             'Exit Time': pd.to_datetime(trades['Time_exit'], format='%H:%M:%S').dt.time,
             'Entry DateTime': trades['DateTime_entry'],
             'Exit DateTime': trades['DateTime_exit'],
-            'NIFTY Entry Price': trades['Price_entry'],
-            'NIFTY Exit Price': trades['Price_exit']
         })
-        
-        # Calculate NIFTY P&L
-        result['P&L (NIFTY)'] = result.apply(
-            lambda row: (row['NIFTY Exit Price'] - row['NIFTY Entry Price']) 
-            if row['Direction'] == 'LONG' 
-            else (row['NIFTY Entry Price'] - row['NIFTY Exit Price']),
-            axis=1
-        )
         
         # Determine Option Type (CALL for LONG, PUT for SHORT)
         result['Option Type'] = result['Direction'].apply(
@@ -86,9 +80,5 @@ class TradingViewParser:
         # Check for valid dates
         if not pd.api.types.is_datetime64_any_dtype(df['Entry DateTime']):
             issues.append("Entry DateTime is not in datetime format")
-        
-        # Check for valid prices
-        if (df['NIFTY Entry Price'] <= 0).any() or (df['NIFTY Exit Price'] <= 0).any():
-            issues.append("Found invalid price values (<=0)")
         
         return issues

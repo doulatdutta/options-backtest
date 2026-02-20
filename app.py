@@ -33,34 +33,130 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better UI
-st.markdown("""
-<style>
-    .main {
-        padding: 0rem 1rem;
-    }
-    .stMetric {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 5px;
-    }
-    h1 {
-        color: #1f77b4;
-        padding-bottom: 10px;
-    }
-    h2 {
-        color: #ff7f0e;
-        padding-top: 20px;
-    }
-    .uploadedFile {
-        border: 2px dashed #1f77b4;
-        border-radius: 5px;
-        padding: 20px;
-    }
-</style>
-""", unsafe_allow_html=True)
+# --- Theme Initialisation ---
+if 'theme' not in st.session_state:
+    st.session_state['theme'] = 'light'
+
+def apply_theme():
+    """Inject CSS based on the current theme stored in session_state"""
+    dark = st.session_state['theme'] == 'dark'
+
+    bg_main       = '#0e1117' if dark else '#ffffff'
+    bg_sidebar    = '#161b22' if dark else '#f0f2f6'
+    bg_card       = '#1e2530' if dark else '#f0f2f6'
+    text_primary  = '#e6edf3' if dark else '#1a1a2e'
+    text_h1       = '#58a6ff' if dark else '#1f77b4'
+    text_h2       = '#ffa657' if dark else '#ff7f0e'
+    border_color  = '#30363d' if dark else '#d0d7de'
+    input_bg      = '#161b22' if dark else '#ffffff'
+    input_border  = '#388bfd' if dark else '#1f77b4'
+    btn_bg        = '#238636' if dark else '#1f77b4'
+    btn_hover     = '#2ea043' if dark else '#1565c0'
+    metric_val    = '#58a6ff' if dark else '#1a73e8'
+
+    st.markdown(f"""
+    <style>
+        /* ===== Overall background ===== */
+        .stApp {{ background-color: {bg_main}; color: {text_primary}; }}
+        section[data-testid="stSidebar"] {{ background-color: {bg_sidebar}; }}
+
+        /* ===== Typography ===== */
+        h1, .stTitle {{ color: {text_h1} !important; padding-bottom: 10px; }}
+        h2, h3 {{ color: {text_h2} !important; padding-top: 10px; }}
+        p, label, div, span {{ color: {text_primary}; }}
+
+        /* ===== Metric cards ===== */
+        div[data-testid="stMetric"] {{
+            background-color: {bg_card};
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid {border_color};
+        }}
+        div[data-testid="stMetricValue"] {{ color: {metric_val} !important; }}
+
+        /* ===== Text / Password inputs only (NOT dropdowns) ===== */
+        div[data-baseweb="input"] input,
+        div[data-baseweb="textarea"] textarea {{
+            background-color: {input_bg} !important;
+            color: {text_primary} !important;
+            border-radius: 6px !important;
+        }}
+        /* Selectbox dropdown container */
+        div[data-baseweb="select"] > div:first-child {{
+            background-color: {input_bg} !important;
+            color: {text_primary} !important;
+            border: 1px solid {border_color} !important;
+            border-radius: 6px !important;
+        }}
+
+        /* ===== Upload area ===== */
+        .uploadedFile {{
+            border: 2px dashed {input_border};
+            border-radius: 8px;
+            padding: 20px;
+            background-color: {bg_card};
+        }}
+
+        /* ===== Dataframe / Table ===== */
+        .stDataFrame {{ border: 1px solid {border_color}; border-radius: 8px; }}
+
+        /* ===== Tabs ===== */
+        button[data-baseweb="tab"] {{
+            color: {text_primary} !important;
+            background-color: transparent !important;
+        }}
+        button[data-baseweb="tab"][aria-selected="true"] {{
+            border-bottom: 3px solid {text_h1} !important;
+            color: {text_h1} !important;
+        }}
+
+        /* ===== Primary buttons ===== */
+        .stButton > button[kind="primary"] {{
+            background-color: {btn_bg} !important;
+            color: #ffffff !important;
+            border: none !important;
+            border-radius: 8px !important;
+        }}
+        .stButton > button[kind="primary"]:hover {{
+            background-color: {btn_hover} !important;
+        }}
+
+        /* ===== Divider ===== */
+        hr {{ border-color: {border_color}; }}
+
+        /* ===== Top-right floating toggle ===== */
+        div[data-testid="stToggle"] {{
+            position: fixed !important;
+            top: 14px !important;
+            right: 20px !important;
+            z-index: 9999 !important;
+            background: {bg_card};
+            padding: 4px 12px 4px 8px;
+            border-radius: 30px;
+            border: 1px solid {border_color};
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }}
+        /* Toggle label text */
+        div[data-testid="stToggle"] label p {{
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: {text_primary} !important;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+apply_theme()
 
 def main():
+
+    # --- Floating top-right toggle switch ---
+    is_dark = st.session_state.get('theme', 'light') == 'dark'
+    toggle_label = "🌙 Dark" if not is_dark else "☀️ Light"
+    toggled = st.toggle(toggle_label, value=is_dark, key="theme_toggle")
+    if toggled != is_dark:
+        st.session_state['theme'] = 'dark' if toggled else 'light'
+        st.rerun()
+
     # Title and header
     st.title("📈 Options Backtesting Platform")
     st.markdown("### Convert TradingView Strategy Reports into NIFTY Options Backtests")
@@ -68,6 +164,8 @@ def main():
     # Sidebar configuration
     with st.sidebar:
         st.header("⚙️ Configuration")
+
+        st.divider()
         
         # Upstox API Configuration
         st.subheader("🔐 Upstox Plus API Credentials")
@@ -197,13 +295,13 @@ def main():
             st.info("👆 Please upload a TradingView strategy report to begin")
             
             st.subheader("📝 Expected File Format")
+            st.info("💡 **No Price needed!** NIFTY50 spot price is automatically fetched from the Upstox API based on Date & Time.")
             sample_data = {
                 'Trade #': [1, 1, 2, 2],
                 'Type': ['Entry', 'Exit', 'Entry', 'Exit'],
                 'Signal': ['Long', 'Long', 'Short', 'Short'],
                 'Date': ['2025-11-01', '2025-11-01', '2025-11-02', '2025-11-02'],
-                'Time': ['09:30', '15:00', '10:15', '14:30'],
-                'Price': [25550.0, 25600.0, 25650.0, 25620.0]
+                'Time': ['09:30', '15:00', '10:15', '14:30']
             }
             st.dataframe(pd.DataFrame(sample_data), use_container_width=True)
     
